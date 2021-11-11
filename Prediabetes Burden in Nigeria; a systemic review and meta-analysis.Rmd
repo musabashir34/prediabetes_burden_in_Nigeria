@@ -3,7 +3,7 @@ title: "Prediabetes Burden in Nigeria; A Systematic Review and Meta-analysis"
 author: 'M. A. Bashir^1,\*^ , A. I. Yahaya^1^, Mukhtar Muhammad^1^, A.H. Yusuf^1^, I.G. Mukhtar^2^'   
 date: '`r Sys.Date()`'
 output:
-  bookdown::word_document2:
+  bookdown::html_document2:
     reference_docx: article_ref.docx
 bibliography: ref.bib
 csl: vancouver
@@ -44,7 +44,8 @@ data1<-data %>% group_by(region) %>% summarize(number = n(), mean_age= mean(age,
 data2<-data_sett %>% group_by(region, settlement) %>% summarize(number = n(), mean_sample_size= mean(sample_sz, na.rm= TRUE)) %>% ungroup()
 data2<-data2 %>% mutate(numb= ifelse(settlement=='urban', number, -1*number))
 # loading shapefile data of in Nigeria
-nigeria_data<-st_read('states.csv')
+nigeria_data<-st_read('nig.geojson')
+regions<-read.csv('states.csv')
 nigeria_data<-rename(nigeria_data, states=admin1Name)
 nigeria_data<-left_join(nigeria_data, regions)
 # filtering ADA criteria studies for sex-specific prevalence rate estimation
