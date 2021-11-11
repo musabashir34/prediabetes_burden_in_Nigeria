@@ -1,0 +1,18 @@
+First_Author,study.year,settlement,Urban,state,region,north_central,north_west,south_east,south_south,south_west,criteria,FBS_ADA,FBS_WHO,HbA1c,IGT,age,mean_wc,abn_wc,mean_bmi,abn_bmi,pred_count,sample_sz
+Dahiru,2008,rural,0,kaduna,north_west,0,1,0,0,0,FBS(WHO),0,1,0,0,39.8,NA,NA,NA,29.1,5,199
+Sabir 2008_a,2008,rural,0,sokoto,north_west,0,1,0,0,0,FBS(WHO),0,1,0,0,NA,NA,NA,NA,NA,26,204
+Oladapo,2005,rural,0,oyo,south_west,0,0,0,0,1,FBS(WHO),0,1,0,0,42.1,88.5,8.5,24.4,3.9,100,2000
+Akinshipe_b,2019,rural,0,edo,south_south,0,0,0,1,0,HbA1c,0,0,0,0,NA,4,18.2,NA,28.2,4,110
+Nwatu,2013,rural,0,enugu,south_east,0,0,1,0,0,IGT,0,0,0,1,51.1,NA,NA,23.5,NA,276,771
+Alikor,2015,rural,0,rivers,south_south,0,0,0,1,0,IGT,0,0,0,1,41.3,NA,NA,NA,NA,12,500
+Anyasodor,2017,urban,1,delta,south_south,0,0,0,1,0,FBS(ADA),1,0,0,0,47.4,90.2,NA,NA,NA,168,433
+Akinwusi,2011,urban,1,osun,south_west,0,0,0,0,1,FBS(ADA),1,0,0,0,49.7,86.24,NA,23.4,NA,37,259
+Eru,2018,urban,1,benue,north_central,1,0,0,0,0,FBS(WHO),0,1,0,0,NA,NA,NA,26.7,60.3,1770,5120
+Sabir 2008_b,2008,urban,1,sokoto,north_west,0,1,0,0,0,FBS(WHO),0,1,0,0,NA,NA,NA,NA,NA,37,219
+Ejike,2019,urban,1,ebonyi,south_east,0,0,1,0,0,FBS(WHO),0,1,0,0,36.9,82.4,14.9,22.5,20.8,51,720
+Lawal ,2018,urban,1,kaduna,north_west,0,1,0,0,0,HbA1c,0,0,1,0,40.4,87.9,NA,27.1,NA,69,400
+Akinshipe_a,2019,urban,1,edo,south_south,0,0,0,1,0,HbA1c,0,0,1,0,NA,25,56.2,NA,56,25,242
+Aniekwensi,2010,urban,1,jos,north_central,1,0,0,0,0,IGT,0,0,0,1,43.2,86.7,47.8,26.6,56,52,709
+Abubakar ,2012,urban,1,kano,north_west,0,1,0,0,0,IGT,0,0,0,1,35.3,84.7,NA,23.8,51.3,42,684
+Enang ,2014,urban,1,calabar,south_south,0,0,0,1,0,IGT,0,0,0,1,38.9,NA,NA,NA,NA,222,1134
+Nyenwe,2000,urban,1,port harcourt,south_south,0,0,0,1,0,IGT,0,0,0,1,48,NA,42.6,25.7,50.2,11,502

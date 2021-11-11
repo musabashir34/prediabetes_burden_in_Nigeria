@@ -1,0 +1,373 @@
+---
+title: "Prediabetes Burden in Nigeria; A Systematic Review and Meta-analysis"
+author: 'M. A. Bashir^1,\*^ , A. I. Yahaya^1^, Mukhtar Muhammad^1^, A.H. Yusuf^1^, I.G. Mukhtar^2^'   
+date: '`r Sys.Date()`'
+output:
+  bookdown::word_document2:
+    reference_docx: article_ref.docx
+bibliography: ref.bib
+csl: vancouver
+nocite: '@*'
+---
+
+^1^Department of Anatomy, Bayero University Kano, Kano State, Nigeria      
+^2^Department of Physiology, Bayero University Kano, Kano State, Nigeria 
+\*Author of Correspondence, Email: [musabashir34\@gmail.com](mailto:musabashir34@gmail.com){.email}, GSM: +2347036878467
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+#setting chunck options and loading libraries
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE, dpi = 300)
+library(bookdown)
+library(flextable)
+library(ggplot2)
+library(tidyverse)
+library(ggpubr)
+library(scales)
+library(ggExtra)
+library(metafor)
+library(meta)
+library(metaviz)
+library(sf)
+library(metagear)
+library(ggstatsplot)
+library(dmetar)
+# loading the data extracted from the included studies
+data<-read.csv('pred_prev_two.csv')
+# loading data prepared for calculating gender-specific prevalence rates
+data_xy<-read.csv('prev_gender.csv')
+# loading data prepared for calculating prevalence rates by settlement (urban and rural)
+data_sett<-read.csv('pred_prev_two_settl.csv')
+# preparing the data for divergent Cleveland dot plot visualization of the included studies
+data0<-data %>% group_by(region, criteria) %>% summarize(number = n(), mean_sample_size= mean(sample_sz, na.rm= TRUE)) %>% ungroup()
+data0<-data0 %>% mutate(numb= ifelse(criteria=='IGT'|criteria=='FBS(ADA)', number, -1*number))
+data1<-data %>% group_by(region) %>% summarize(number = n(), mean_age= mean(age, na.rm= TRUE), mean_sample_size= mean(sample_sz, na.rm= TRUE)) %>% ungroup()
+data2<-data_sett %>% group_by(region, settlement) %>% summarize(number = n(), mean_sample_size= mean(sample_sz, na.rm= TRUE)) %>% ungroup()
+data2<-data2 %>% mutate(numb= ifelse(settlement=='urban', number, -1*number))
+# loading shapefile data of in Nigeria
+nigeria_data<-st_read('states.csv')
+nigeria_data<-rename(nigeria_data, states=admin1Name)
+nigeria_data<-left_join(nigeria_data, regions)
+# filtering ADA criteria studies for sex-specific prevalence rate estimation
+data_xy_ADA<-data_xy %>% filter(!criteria=='FBS(WHO)')
+# calculating effect sizes for sex-specific prevalence rate estimation under ADA criteria
+cal_xy_ADA<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_xy_ADA, append = TRUE)
+# filtering WHO criteria studies for sex-specific prevalence rate estimation
+data_xy_WHO<-data_xy %>% filter(criteria=='IGT'|criteria=='FBS(WHO)')
+# calculating effect sizes for sex-specific prevalence rate estimation under WHO criteria
+cal_xy_WHO<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_xy_WHO, append = TRUE)
+# filtering ADA criteria studies for overall prevalence rate estimation
+data_ADA<-data %>% filter(!criteria=='FBS(WHO)')
+# calculating effect sizes for overall prevalence rate estimation under ADA criteria
+data_ADA_cal<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_ADA, append = TRUE)
+# fitting the multi-level model for overall prevalence rate estimation under ADA criteria
+model_1_ADA<-rma.mv(data = data_ADA_cal, yi, vi, digits = 3,random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+# extracting measures of heterogeneity for overall prevalence rate estimation under ADA criteria
+aa<-mlm.variance.distribution(model_1_ADA)
+aa<-round(as.numeric(aa$results$I2[2]), digits = 1)
+aat<-round(sum(model_1_ADA$sigma2), digits = 3)
+# extracting overall prevalence rate and its confidence interval under ADA criteria
+model_ADA_data<-confint.rma.mv(model_1_ADA, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+model_ADA_data<-data.frame(model_ADA_data$fixed)
+# filtering WHO criteria studies for overall prevalence rate estimation
+data_WHO<-data %>% filter(criteria=='IGT'|criteria=='FBS(WHO)')
+# calculating effect sizes for overall prevalence rate estimation under WHO criteria
+data_WHO_cal<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_WHO, append = TRUE)
+# fitting the multi-level model for overall prevalence rate estimation under WHO criteria
+model_1_WHO<-rma.mv(data = data_WHO_cal, yi, vi, digits = 3, random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+# extracting measures of heterogeneity for overall prevalence rate estimation under WHO criteria
+bb<-mlm.variance.distribution(model_1_WHO)
+bb<-round(as.numeric(bb$results$I2[2]), digits = 1)
+bbt<-round(sum(model_1_WHO$sigma2), digits = 3)
+# extracting overall prevalence rate and its confidence interval under WHO criteria
+model_WHO_data<-confint.rma.mv(model_1_WHO, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+model_WHO_data<-data.frame(model_WHO_data$fixed)
+# fitting the multi-level model for sex-specific prevalence rate estimation under ADA criteria
+model_xy_ADA<-rma.mv(data = cal_xy_ADA, yi, vi, mods= ~Females, digits = 3, random= ~1|criteria/study_id, tdist=TRUE, method = "REML")
+# extracting sex-specific prevalence rate and its confidence interval under ADA criteria
+sex_ADA<-confint.rma.mv(model_xy_ADA, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+sex_ADA<-data.frame(sex_ADA$fixed)
+# fitting the multi-level model for sex-specific prevalence rate estimation under WHO criteria
+model_xy_WHO<-rma.mv(data = cal_xy_WHO, yi, vi, mods= ~Females, digits = 3, random= ~1|criteria/study_id, tdist=TRUE, method = "REML")
+# extracting sex-specific prevalence rate and its confidence interval under WHO criteria
+sex_WHO<-confint.rma.mv(model_xy_WHO, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+sex_WHO<-data.frame(sex_WHO$fixed)
+# filtering ADA criteria studies for urban and rural prevalence rate estimation
+data_sett_ADA<-data_sett %>% filter(!criteria=='FBS(WHO)')
+# calculating effect sizes for urban and rural prevalence rate estimation under ADA criteria
+sett_cal_ADA<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_sett_ADA, append = TRUE)
+# fitting the multi-level meta-regression model for urban and rural prevalence rate estimation under ADA criteria
+model2_ADA<-rma.mv(data = sett_cal_ADA, yi, vi, mods= ~Urban, digits = 3, random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+# extracting urban and rural prevalence rate estimates under ADA criteria
+settl_ADA<-confint.rma.mv(model2_ADA, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+settl_ADA<-data.frame(settl_ADA$fixed)
+# filtering WHO criteria studies for urban and rural prevalence rate estimation
+data_sett_WHO<-data_sett %>% filter(criteria=='FBS(WHO)'|criteria=='IGT')
+# calculating effect sizes for urban and rural prevalence rate estimation under WHO criteria
+sett_cal_WHO<-escalc(measure = 'PAS', xi = pred_count, ni= sample_sz, data = data_sett_WHO, append = TRUE)
+# fitting the multi-level meta-regression model for urban and rural prevalence rate estimation under WHO criteria
+model2_WHO<-rma.mv(data = sett_cal_WHO, yi, vi, mods= ~Urban, digits = 3, random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+# extracting urban and rural prevalence rate estimates under WHO criteria
+settl_WHO<-confint.rma.mv(model2_WHO, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+settl_WHO<-data.frame(settl_WHO$fixed)
+# calculating prediction interval for pooled estimate under ADA criteria
+PI_ADA<-data.frame(predict.rma(model_1_ADA, transf = transf.iarcsin))
+# calculating prediction interval for pooled estimate under WHO criteria
+PI_WHO<-data.frame(predict.rma(model_1_WHO, transf = transf.iarcsin))
+# fitting multi-level meta-regression model to explain heterogeneity under ADA criteria
+ADA_metaregression<-rma.mv(data = sett_cal_ADA, yi, vi, mods= ~north_central+north_west+south_east+south_south+south_west, digits = 3, random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+cc<-mlm.variance.distribution(ADA_metaregression)
+cc<-round(as.numeric(cc$results$I2[2]), digits = 1)
+cct<-round(sum(ADA_metaregression$sigma2), digits = 3)
+# fitting meta-regression model to explain heterogeneity under WHO criteria
+WHO_metaregression1<-rma.uni(data = cal_xy_WHO, yi, vi, mods= ~factor(settlement)+factor(gender)+factor(region)+factor(criteria)+age-1, digits = 3, method = 'SJ')
+# extracting data for visualization of explainers of heterogeneity under WHO criteria.
+data5<-data.frame((confint.rma.uni(WHO_metaregression1, transf = transf.iarcsin, fixed = TRUE, random = FALSE)$fixed))
+data5<-rename(data5, conf.low=ci.lb)
+data5<-rename(data5, conf.high=ci.ub)
+q<-data.frame(term= c('Mixed Settlement','Rural Settlement', 'Urban Settlement','Males', 'North-West Region','South-East Region', 'South-South Region', 'IGT Criteria', 'Participants Mean Age'),statistic=WHO_metaregression1$zval, p.value=WHO_metaregression1$pval )
+data5<-bind_cols(q, data5)
+data5<-data5 %>% filter(p.value<0.05)
+```
+    
+        
+
+ABSTRACT\
+*Prediabetes is a borderline glycemic status associated with both higher incident cardiovascular disease as well as higher risk of progression to diabetes. There is a rising burden of diabetes and prediabetes globally. This study aims to estimate the burden of prediabetes in Nigeria. Online searches of Google Scholar, PubMed and Scopus were conducted and studies selected based on predefined criteria. `r nrow(data)` studies consisting of `r sum(data$sample_sz)` individuals conducted between `r min(data$study.year)` and `r max(data$study.year)` were included in the meta-analysis with studies using American Diabetic Association (ADA) and World Health Organization (WHO) criteria pooled separately. The pooled prevalence of prediabetes in Nigeria was found to be  `r round(model_ADA_data[1,1]*100, digits =1)`% (95% CI: `r round(model_ADA_data[1,2]*100, digits =1)`%-`r round(model_ADA_data[1,3]*100, digits =1)`%, I^2^ = `r aa`% ) using the ADA criteria and `r round(model_WHO_data[1,1]*100, digits =1)`% (95% CI: `r round(model_WHO_data[1,2]*100, digits =1)`%-`r round(model_WHO_data[1,3]*100, digits =1)`%, I^2^ = `r bb`% ) using the WHO criteria. According to the latest data by the United Nations[@unfpa-unitednationspopulationfundUNFPAUnitedNations2021], this translates to estimated `r round(model_ADA_data[1,1]*120, digits =1)` million  and `r round(model_WHO_data[1,1]*120, digits =1)` adult prediabetic individuals in Nigeria using the ADA and WHO criteria respectively. The prevalence rates for females and males are similar at `r round(sex_WHO[1,1]*100, digits = 1)`% (95% CI: `r round(sex_WHO[1,2]*100, digits = 0)`%-`r round(sex_WHO[1,3]*100, digits = 0)`%). The pooled prevalence rates for urban and rural settlements are also similar at `r round(settl_WHO[1,1]*100, digits = 0)`% (95% CI: `r round(settl_WHO[1,2]*100, digits = 0)`%-`r round(settl_WHO[1,3]*100, digits = 0)`%). In conclusion, the prevalence of prediabetes in Nigeria is almost 2 times higher than the 7.3% estimate by the International Diabetes Federation in 2003. The similar rates of prediabetes between males and females and between urban and rural settlements points towards narrowing of cardiovascular risk burden between the two sexes and the two settlements. This represents higher future cardiovascular disease burden in the country further pressurizing the overstretched health care system.*
+
+**Keywords**: Prediabetes, Nigeria, Impaired Glucose Tolerance, Systematic Review, Meta-analysis
+
+# INTRODUCTION
+
+Prediabetes is a borderline glycemic recognized as a toxic cardio-metabolic state similar to what is observed in established diabetes[@brannickPrediabetesToxicEnvironment2016]. Consequently, many macrovascular and microvascular complications of diabetes exist in the prediabetic state[@brannickPrediabetesCardiovascularDisease2018]. Prediabetes is a heterogenous entity including Impaired Fasting Glucose (IFG), defined as Fasting Blood Sugar (FBS) in the range 5.6 to 6.9mmol/L, Impaired Glucose Tolerance (IGT), defined as 2-hour blood sugar between 7.8 to 11.0mmol/L during glucose tolerance test(OGTT) and raised glycosylated hemoglobin (HbA1c)levels in the range 5.7 to 6.4%[@americandiabetesassociationDiagnosisClassificationDiabetes2011].\ **The first coinage of the term 'impaired glucose tolerance' was used first in 1979 by a  Word Health Organization (WHO) Expert Committee on Diabetes Mellitus and the OGTT range for IGT defined by the committee has not changed since then [@whoexpertcommitteeondiabetesWHOExpertCommittee1980]. The term 'prediabetes' was popularized by An international expert committee was raised by the American Diabetic Association in 1995 which adopted the IGT defition by WHO but also coined the new condition 'Impaired Fasting Glucose' (IFG) defined as fasting venous plasma glucose 5.6mmol/L to 6.9mmol/L[@americandiabetesassociationReportExpertCommittee2003]. The ADA proposed HbA1c values 5.7%-6.4% as a third definition of prediabetes in addition to IFG and IGT. The decision on this HbA1c threshold was based in its capacity to predict, as a composite risk factor, prevalence of diabetes and cardiovascular events that is equivalent to what IFG and IGT predict[@ackermannIdentifyingAdultsHigh2011].**         
+
+A recent meta-analysis of 59 prospective studies, showed that the pre-diabetic individuals have almost six(6) times risk of developing diabetes than normoglycemic individuals. This risk ranged from as high as eleven (11) times for studies that used the HbA1C or ADA FBS criteria to as low as three (3) times for studies that used IGT criteria[@xuRelativeRiskDeveloping2020a]. Prediabetes not only predisposes to higher risk of progression to diabetes but is by itself an independent risk factor for cardiovascular disease. A meta-analysis of 129 studies comprising of 10 069 955 individuals, found prediabetes to predispose to higher risk of all cause mortality, composite cardiovascular disease, coronary heart disease and stroke. In particular, the WHO FBS criteria of prediabetes was associated with 1.26 relative risk of all cause mortality compared to normoglycemia. The corresponding risk for ADA FBS criteria was 1.03. The corresponding relative risks for coronary heart disease for the two criteria were 1.12 and 1.05 respectively. Interestingly, the meta-analysis reported a lower relative risk of developing stroke, compared to normoglycemia, if ADA FBS criteria was used. The WHO FBS criteria, however, was associated with stroke relative risk of 1.18 compared to normoglycemia[@caiAssociationPrediabetesRisk2020a].         
+    
+In another recent meta-analysis of 15 prospective studies with median follow-up of 8 years and comprising 9,827,430 individuals, prediabetes was associated with increased incidence of heart failure (RR 1.58, 95% CI 1.04-2.39, for IGT) compared to normoglycemia[@caiPrediabetesRiskHeart2021]. Prediabetes was also found in another recent meta-analysis to adversely affect outcome in heart failure patients with all-cause mortality HR of 1.29 (95% CI 1.06-1.58)[@maiAssociationPrediabetesAdverse2021].   
+
+The International Diabetes Federation(IDF) estimated the prevalence of prediabetes in Nigeria in 2003 to be at 7.3% and projected that, by 2025, the number of individuals with prediabetes in the country will almost double but the prevalence will remain at 7.3% because of increasing population.[@ganDiabetesAtlas2003]. A more recent regional estimate sets the prevalence of prediabetes(defined as IGT) of the African region at 10.1% (CI = 5.6% to 22.7%) translating to 45.3 million individuals. It is of note that neither the 2003 nor the 2019 IDF reports included data from Nigeria in the estimation of prediabetes prevalence [@ganDiabetesAtlas2003; @karurangaIDFAtlas9th2019]. To the best of our knowledge, this is the first systematic review and meta-analysis of prediabetes prevalence in Nigeria since the 2003 publication by the IDF.
+
+# METHODOLOGY
+
+## Study Area
+
+Nigeria is a western African nation with an area of 923,769 sq km, home to more than 250 ethnic groups [@udoNigeria2020]. It has 36 states and a capital divided into 6 geo-political zones or regions. The estimated population in 2021 is 211.4 million. 43.4% of the population are under the age of 14 years. 53.9% of the population are between the ages of 15 and 64 years. Only 2.8% of the population are above the age of 65 years.[@unfpa-unitednationspopulationfundUNFPAUnitedNations2021]. Figure \@ref(fig:zones) shows the map of the geopolitical zones of the country.
+
+```{r zones, fig.cap='Geo-Political Zones in Nigeria'}
+# visualizing the six geo-political regions in Nigeria
+ggplot()+geom_sf(mapping = aes(fill=region, color=region), data = nigeria_data)+theme_bw()+scale_fill_discrete(name= 'Regions', labels= c('North-Central', 'North-East', 'North-West', 'South-East', 'South-South', 'South-West'))+scale_color_discrete(name= 'Regions', labels= c('North-Central', 'North-East', 'North-West', 'South-East', 'South-South', 'South-West'))+ labs(caption = 'Simple Features File Source: Humanitarian Data Exchange (2020)')
+```
+
+## Inclusion and Exclusion Criteria
+
+We included community-based studies conducted in adult population (greater than 18 years of age) of Nigeria. Studies selected defined prediabetes using both ADA and WHO criteria and used HbA1C, FBS and IGT definitions. We excluded studies conducted in individuals less than 18 years of age, studies on pregnant women and all hospital-based studies.
+
+
+
+## Studies Search Strategies
+
+Online databases used were Google Scholar, PubMed and Scopus. Search words and phrases used were: 'impaired fasting glucose', impaired fasting sugar', 'impaired glucose tolerance', 'prediabetes' and “borderline glycemic state” .Search was repeated for each word or phrase with the name 'Nigeria'. Search was conducted between March 2021 to November 2021. Screening of the abstracts and titles of the articles was done independently by two reviewers (MAB and IGM) and studies selection and exclusion done based on the predefined criteria. Thereafter, screening of the full-text articles was done independently by the same researches to select the studies to be included in qualitative and quantitative analyses.
+    
+## Qualitative Analysis of the Included Studies       
+    
+The methodological quality of the included studies was assessed using a modification of the Joanna Briggs Institute (JBI) Critical Appraisal Checklist for Studies Reporting Prevalence Data[@joannabriggsinstituteJoannaBriggsInstitute2017]. The item’s original 9 questions were reduced to six (6) with questions one (1) and two (2) given a score of two (2)  and the remaining four (4) question each given a score of one (1) for a ‘yes’ and zero (0) for a ‘no.’ The total maximum score is eight(8). A study was judged as good quality if it scored minimum of six (6) and of poor quality if it scores less than six (6). Assessment was done independently by two reviewers (AHY and MM) with disagreements sorted by AIH. Table \@ref(tab:check) shows the modified tool used in critical appraisal of the included studies. The minimum sample size for scoring a study as a ‘yes’ was one hundred and two (102) calculated using Epitools[@epitoolsEpitoolsSampleSize] online calculator assuming an estimated prevalence of 7.1% based on a recent meta-analysis of studies conducted in neighboring Cameroon[@bignaPrevalencePrediabetesDiabetes2018]. Reliability and Validity of methods was assessed based on whether the studies used glucose oxidase methods or Point of Care Glucometers for measurement of blood glucose levels. Only studies judged as having high methodological quality were included in the quantitative analysis.           
+    
+```{r check, tab.cap= 'Critical Appraisal Checklist'}
+# reading and displaying the quality appraisal check-list
+ck<-read.csv('appraisal_checklist.csv')
+autofit(flextable(ck))
+```    
+        
+## Data Extraction and Quantitative Analysis
+
+Data extraction was independently done by two reviewers (MAB and IGM). Extracted information from the studies included prevalence of prediabetes, sample size, settlement (urban/rural), state and region of the study, study year, mean age and sex composition of the study participants. Data was entered into Excel and then imported into R statistical environment for statistical computing, version 4.1.0.1[@rcoreteamLanguageEnvironmentStatistical2021].
+Metafor Package[@viechtbauerConductingMetaanalysesMetafor2010] was used to fit Multi-level Random Effects Model for pooling prevalence rates and Multi-level Mixed Effects Model for meta-regression using inverse variance method with correction of pooled estimate and its variance using Sidik-Jonkman’s estimator for between study heterogeneity[@sidikConstructingConfidenceIntervals2003]. The 3 levels of the multi-level models are as follows:
+    
+1. Level 1: variance explained by sampling errors of the included studies       
+    
+1. Level 2: between study heterogeneity       
+    
+1. Level 3: heterogeneity between clusters of studies with clusters defined by the methods of defining prediabetes i.e. IGT, HbA1c, FBS under ADA criteria and FBS under WHO Criteria.     
+    
+Because the ADA and IGT criteria for prediabetes are not mutually exclusive (both defined IGT the same way), comparison of the pooled prevalence rates under the two criteria could not be done through meta-regression or sub-group analyses. Consequently, the prevalence rates under the two criteria were pooled separately.            
+    
+The analysis of heterogeneity was done both through a meta-regression using characteristics of the included studies as predictors. Comparison of between study heterogeneity measures in the model with and model without moderators was done. Additionally, distribution of heterogeneity between the three levels of the model was calculated using the formula developed by Cheung [@cheungModelingDependentEffect2013] and implemented in dmetar R package[@harrerDmetarCompanionPackage2019].        
+Finally, Prediction Intervals were reported to overcome the difficulties in interpreting both tau^2^ and I^2^ as measures of between study heterogeneity[@borensteinBasicsMetaanalysisNot2017]
+    
+Funnel plot was used to visually inspect for possible publication bias where studies reporting small prevalence were not published and thus not included in the meta-analysis. Formal regression test develooped by Egger and colleagues[@eggerBiasMetaanalysisDetected1997] was employed for testing funnel plot asymmetry.    
+
+# RESULTS       
+    
+## Search Results   
+    
+10934 studies were retrieved from the databases, with titles and abstracts of 8269 studies screened after duplicates were removed. Full text of 96 studies were assessed for eligibility with 53 studies included in qualitative analysis. (Figure \@ref(fig:prisma))        
+    
+    
+            
+```{r prisma, fig.cap= 'Results of the Search'}
+# visualizing prisma chart
+ phases <- c("START_PHASE: # of studies identified through database searching 10934",
+            "START_PHASE: # of additional studies identified through other sources 0",
+            "# of studies after duplicates removed 8269",
+           "# of studies with title and abstract screened 8269",
+            "EXCLUDE_PHASE: # of studies excluded 7674",
+            "# of full-text articles assessed for eligibility 96",
+            "EXCLUDE_PHASE: # of full-text excluded, not fitting eligibility criteria 42",
+            "# of studies included in qualitative synthesis 53",
+            "EXCLUDE_PHASE: # studies excluded, poor quality 38",
+            "final # of studies included in quantitative synthesis (meta-analysis) 15")
+plot_PRISMA(phases, design = "cinnamonMint", excludeDistance = 1)
+```                    
+    
+        
+            
+## Methodological features and the Critical Appraisal of the Included Studies           
+    
+53 studies were selected and included in the qualitative analysis of methodological features. The quality appraisal of the included studies is shown in the supplementary material.     
+    
+            
+## Characteristics of the Studies Included in the Quantitative Analysis
+
+`r nrow(data)` studies consisting of `r sum(data$sample_sz)` individuals met the inclusion criteria and are included in the meta-analysis. The studies were conducted between `r min(data$study.year)` and `r max(data$study.year)`. There were `r data0[4,3]+data0[5, 3]+data0[3, 3]` studies from the north-west region of which `r data2[3,3]-1` were conducted in urban settlements, `r data2[2,3]-1` was conducted in a rural area and 1 study was conducted in both rural and urban settlements. For the latter study, data on prevalence of prediabetes in rural and urban areas was analysed separately. There were `r data0[1, 3]+data0[1, 3]` studies from the north_central both conducted in urban settlements. There were `r data0[6, 3]+data0[7, 3]` studies from the south-east conducted in an urban and a rural settlement. `r -data0[8, 3]+data0[9, 3]+data0[10, 3]` studies were conducted in the south-south region including `r data2[7,3]-1` studies conducted in urban settlements and `r data2[6,3]-1` study conducted in a rural settlement. For the latter study, data on prevalence of prediabetes in rural and urban areas was analysed separately. `r data0[11, 3]+data0[12, 3]` studies were conducted in the south-west region conducted in an urban and a rural settlement. No study from the north-east region was included in the quantitative analysis.  Overall, four(4) studies were conducted in the rural settlements only, nine(9) studies were conducted in urban settlements only and 2 studies were conducted in both rural and urban settlements.      
+
+Impaired Glucose Tolerance(IGT) was the most frequent criteria used by the included studies with `r data %>% filter(criteria=='IGT') %>% nrow()` studies using the criteria. `r data %>% filter(criteria=='HbA1c') %>% nrow()` studies used the HbA1c criteria and `r data %>% filter(criteria=='FBS(ADA)'|criteria=='FBS(WHO)') %>% nrow()`. The region with the youngest study participants was the north-west with reported studies' mean age of `r round(data1[2,3], digits=0)`. South-west studies have the oldest participants with mean age of `r round(data1[5,3], digits=0)`. Studies conducted in the southern regions included older subjects than those included in northern regions. The largest studies were from north-central region and included `r round(data1[1,4], digits=0)`. North-west studies are smallest and included `r round(data1[12,4], digits=0)` (Figure \@ref(fig:raw))
+
+```{r raw, fig.cap= 'Characteristics of the Included Studies'}
+# dot plots of the characteristics of the included studies
+mage<-round(mean(data$age, na.rm = TRUE), digits= 0)
+msize<-round(mean(data$sample_sz, na.rm = TRUE), digits= 0)
+breaks0<-pretty(data0$numb)
+x<-ggplot(data0, aes(y=fct_reorder(region, numb), x= numb, color= criteria))+geom_point(size=1.5)
+x<-x+geom_segment(data= data0, aes(y=fct_reorder(region, numb), yend=region, x=0, xend= numb))
+x<-x+geom_vline(xintercept = 0)+ scale_x_continuous(name = 'Number of Studies', breaks = breaks0, labels = abs(breaks0))+ scale_y_discrete(name= 'Regions')+
+  geom_text(aes(label=abs(numb)), size=0.5, color= 'black', vjust=1)+theme_classic()+labs(title = 'Criteria', color= 'criteria')+guides(color=guide_legend(reverse = TRUE))+theme(legend.position = 'right')
+x1<-ggplot(data1, aes(y=fct_reorder(region, mean_age), x= mean_age, color= mean_age>mage))+geom_point(size=1.5)
+x1<-x1+geom_segment(data= data1, aes(y=fct_reorder(region, mean_age), yend=region, x=43, xend= mean_age))
+x1<-x1+geom_vline(xintercept = 43)+geom_text(aes(label=round(mean_age, digits = 0)), color= 'black', nudge_x = 1, nudge_y = 0.3)
+x1<-x1+labs(title = 'Age', x= 'average age', y= 'Regions')+theme(legend.position ='none')+scale_x_continuous(limits = c(34.5, 55.5))
+x2<-ggplot(data1, aes(y=fct_reorder(region, mean_sample_size), x= mean_sample_size, color= mean_sample_size>947))+geom_point(size=1.5)
+x2<-x2+geom_segment(data= data1, aes(y=fct_reorder(region, mean_sample_size), yend=region, x=947, xend= mean_sample_size))
+x2<-x2+geom_vline(xintercept = 947)+geom_text(aes(label=round(mean_sample_size, digits = 0)), color= 'black',nudge_x = 0.1, nudge_y = -0.4, hjust=1, vjust=-1)
+x2<-x2+labs(title = 'Studies Sizes', x= 'Sample Size', y= 'Regions')+theme(legend.position ='none')+scale_color_manual(values = c('yellow', 'green'))+scale_x_continuous(limits = c(-600, 3000))
+breaks2<-pretty(data2$numb)
+x3<-ggplot(data2, aes(y=fct_reorder(region, numb), x= numb, color= settlement))+geom_point(size=1.5)
+x3<-x3+geom_segment(data= data2, aes(y=fct_reorder(region, numb), yend=region, x=0, xend= numb))
+x3<-x3+geom_vline(xintercept = 0)+ scale_x_continuous(name = 'Number of Studies', breaks = breaks2, labels = abs(breaks2))+ scale_y_discrete(name= 'Regions')+ geom_text(aes(label=abs(numb)), size=0.5, color= 'black', vjust=1)+theme_classic()+labs(title = 'Settlement', color= 'settlement')+guides(color=guide_legend(reverse = TRUE))+theme(legend.position = 'top')
+ggarrange(x1, x2,x,x3, labels = 'AUTO', font.label = (size= 11), align = 'hv')
+```
+
+## Fitting the Meta Analytic Model
+
+Random Effects Model was fitted using inverse variance method with correction of pooled estimate and its variance using Sidik-Jonkman's estimator for between study heterogeneity. Prevalences are transformed using arcsine transformation. Prevalences under ADA and WHO criteria were pooled separately. Figure \@ref(fig:model1) shows the forest plot of the model.
+
+```{r model1, fig.cap='forest plot'}
+a<- rainforest(model_1_ADA, x_trans_function = transf.iarcsin, study_labels = data_ADA_cal$First_Author, annotate_CI = TRUE, summary_col = 'Greens')
+b<-rainforest(model_1_WHO, x_trans_function = transf.iarcsin, study_labels = data_WHO_cal$First_Author, annotate_CI = TRUE, summary_col = 'Greens')
+ggarrange(a, b, labels = c('(A)', '(B)'), nrow = 2, vjust = 1)
+```
+
+The overall pooled prevalence of prediabetes in Nigeria is `r round(model_ADA_data[1,1]*100, digits =1)`% (95% CI: `r round(model_ADA_data[1,2]*100, digits =1)`%-`r round(model_ADA_data[1,3]*100, digits =1)`%) using the ADA criteria and `r round(model_WHO_data[1,1]*100, digits =1)`% (95% CI: `r round(model_WHO_data[1,2]*100, digits =1)`%-`r round(model_WHO_data[1,3]*100, digits =1)`%) using the WHO criteria. According to the latest data by the United Nations[@unfpa-unitednationspopulationfundUNFPAUnitedNations2021], this translates to estimated `r round(model_ADA_data[1,1]*120, digits =1)` million  and `r round(model_WHO_data[1,1]*120, digits =1)` adult prediabetic individuals in Nigeria using the ADA and WHO criteria respectively. The *P* values for the random meta analytic model is `r pvalue(model_1_WHO$pval)` for the models under the two criteria(ADA and WHO). The estimated total between studies heterogeneity not explained by sampling error (I^2^) under both criteria is about `r bb`%. Test for Heterogenity is significant with p-value`r pvalue(model_1_ADA$QEp)` indicating substantial heterogeneity between the included studies. Prediction Intervals for the models under ADA and WHO criteria are `r PI_ADA[1,4]`%-`r round(PI_ADA[1,5]*100, digits=1)`%  and `r PI_WHO[1,4]`%-`r round(PI_WHO[1,5]*100, digits=1)`% respectively.             
+
+## Analysis of Between Study Heterogeneity    
+            
+For the model under ADA criteria, a multilevel meta-regression model was fitted using geo-political region as a moderator. Figure \@ref(fig:metregada) shows the distribution of the heterogeneity. Most of the substantial heterogenity (almost 60% of it) is attributable to the use of different methods of defining prediabetes by the included studies (IGT, HbA1c or FBS). The between study heterogeneity (Level 2 of the model) accounts for about 40% of the heterogeneity.     
+    
+For the WHO criteria model, a metaregression using gender, region, mean age of the participants as moderators was fitted. The value of I^2^ dropped from `r bb`%, signifying substantial heterogeneity, to `r round(WHO_metaregression1$I2, digits = 1)`% indicating moderate heterogeneity with statistically non-significant test of between study heterogeneity (*P* value = `r pvalue(WHO_metaregression1$QEp)`). This means most of the heterogeneity between the studies results from the differences in study characteristics. Figure \@ref(fig:metregwho) shows the statistically significant regression coefficients, in decreasing order, of the predictors under WHO criteria. 
+    
+```{r metregada, fig.cap='Distribution of Heterogeneity: Level 1 = sampling error, level 2 = within study heterogeneity and Level 3 = between criteria heterogeneity'}
+plot(mlm.variance.distribution(ADA_metaregression))
+```
+    
+      
+```{r metregwho, fig.cap='WHO Criteria Meta-regression'}
+ggcoefstats(data5, statistic = 'z', ylab = 'Predictors', xlab = 'Prevalence', sort = 'ascending')
+```        
+             
+## Analysis of Publication Bias           
+
+       
+```{r fun, fig.cap='Funnel Plots of the Models'}
+model_1_ADAx<-rma.uni(data = data_ADA_cal, yi, vi, digits = 3,random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+model_1_WHOx<-rma.uni(data = data_WHO_cal, yi, vi, digits = 3, random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+a1<-regtest(model_1_ADAx)
+b1<-regtest(model_1_WHOx)
+line = 1
+cex = 2
+side = 3
+adj=-0.05
+part<-par(mfrow=c(1, 2))
+funnel.rma(model_1_ADA)
+mtext("(A)", side=side, line=line, cex=cex, adj=adj)
+funnel.rma(model_1_WHO)
+mtext("(B)", side=side, line=line, cex=cex, adj=adj)
+par(part)
+```
+      
+        
+           
+          
+Figure \@ref(fig:fun) shows the funnel plot of the model under ADA (plot (A)) and WHO (plot(B)) criteria respectively. There was no obvious asymmetry in the plots. Formal test for plot asymmetery (regression test) was conducted and it was not statistically significant (*P* value is `r pvalue(a1$pval)` and `r pvalue(b1$pval)` for the model under ADA and WHO criteria respectively), confirming the visual assessment of the funnel plot.          
+                                        
+## Gender-Specific Prevalence of Prediabetes                
+    
+The prevalence rates for females and males are similar at `r round(sex_WHO[1,1]*100, digits = 1)`% (95% CI: `r round(sex_WHO[1,2]*100, digits = 0)`%-`r round(sex_WHO[1,3]*100, digits = 0)`%) and `r round(sex_ADA[1,1]*100, digits = 1)`% (95% CI: `r round(sex_ADA[1,2]*100, digits = 0)`%-`r round(sex_ADA[1,3]*100, digits = 0)`%) under WHO and ADA criteria respectively.
+    
+```{r modelxy, fig.cap='Prevalence of Prediabetes in Males and Females'}
+#c<-rainforest(model_xy_ADA, study_labels = data_xy_ADA$study.year, group = data_xy_ADA$gender,summary_name= c('Females','Males'), xlab= 'Prevalence', type= 'summary_only', annotate_CI = TRUE, x_trans_function = transf.iarcsin)
+#d<-rainforest(model_xy_WHO, study_labels = data_xy_WHO$study.year, group = data_xy_WHO$gender,summary_name= c('Females','Males'), xlab= 'Prevalence', type= 'summary_only', annotate_CI = TRUE, x_trans_function = transf.iarcsin)
+#ggarrange(c, d, labels = c('(A)', '(B)'), nrow = 2)
+```
+        
+## Prevalence of Prediabetes between Urban and Rural Settlements in Nigeria
+
+The pooled prevalence rates for urban and rural settlements are similar at `r round(settl_WHO[1,1]*100, digits = 0)`% (95% CI: `r round(settl_WHO[1,2]*100, digits = 0)`%-`r round(settl_WHO[1,3]*100, digits = 0)`%)        
+    
+    
+```{r model2, fig.cap='Forest Plot of Prevalence by Rural and Urban settlements'}
+#rainforest(model2_WHO, study_labels = sett_cal_WHO$study.year, group = data_sett_WHO$settlement,summary_name= c('Rural','Urban'), xlab= 'Prevalence', type= 'summary_only', annotate_CI = TRUE, x_trans_function = transf.iarcsin)
+```
+
+# DISCUSSION
+
+The higher pooled crude prevalence of prediabetes under the ADA criteria (`r round(model_ADA_data[1,1]*100, digits =1)`%)  compared to pooled prevalence under the WHO criteria (`r round(model_WHO_data[1,1]*100, digits =1)`%) is due to the fact that the former criteria uses a lower FBS threshold than the latter resulting in higher number of individuals diagnosed with prediabetes[@americandiabetesassociationDiagnosisClassificationDiabetes2011].   These crude prevalence rates of prediabetes in Nigeria were pooled from studies conducted between `r min(data$study.year)` and `r max(data$study.year)`. The 2003 IDF estimate of 7.3% prediabetes prevalence in Nigeria was pooled from two studies conducted in neighboring Cameroon in 1997 and neighboring Ghana in 2002. [@ganDiabetesAtlas2003]. Thus, the IDF estimate might not truly represent the burden of prediabetes in Nigeria at the time. Assuming the estimates are accurate description of the prediabetes burden in Nigeria, the prevalence of prediabetes in the country has thus increased by `r abs(round((0.073-model_ADA_data[1,1])/0.073*100, digits =0))`% using ADA criteria and by `r abs(round((0.073-model_WHO_data[1,1])/0.073*100, digits =0))`% using WHO criteria. This rising trend of prediabetes burden is a global phenomenon. It is observed in neighboring Cameroon where the 2003 IDF reported estimate of 2.2% increased by more than 3 times to 7.1% in 2018 [@bignaPrevalencePrediabetesDiabetes2018], in Eastern Mediterranian region where 2003 IDF reported prevalence of 6.8% almost doubled to 12.2% in 2019[@mirahmadizadehPrevalenceUndiagnosedType2020], in Brazil where 2003 IDF reported prevalence of 6.8% almost tripled to 18.5% in 2021[@iserPrediabetesIntermediateHyperglycemia2021], in Mainland China where 2003 IDF reported prevalence of 2.7% increased almost 13 times to 35.2% in 2018 [@liPrevalenceDiabetesRecorded2020], in England where 2003 IDF reported prevalence of 5.1% increased almost 7 times to 35.3% in 2011 [@mainousPrevalencePrediabetesEngland2014] and in United States where 2003 IDF reported prevalence of 8% increased almost 5 times to 38% in 2011 [@menkePrevalenceTrendsDiabetes2015].(Figure \@ref(fig:discussion))        
+
+```{r discussion, fig.cap='Trends in Prediabetes Prevalence in Selected Countries'}
+ a<-c('Nigeria(ADA)', 'Nigeria(ADA)', 'United States','United States', 'England','England', 'Cameroon','Cameroon', 'Eastern Mediterranian', 'Eastern Mediterranian','Brazil','Brazil', 'China', 'China')
+b<-c('2003', 'later year', '2003', 'later year', '2003', 'later year', '2003', 'later year', '2003', 'later year', '2003', 'later year', '2003', 'later year')
+c<- c(7.3,13.2, 8,38, 5.1, 35.3,2.2, 7.1, 6.8,12.2,  6.8, 18.5, 2.7, 35.2)
+discu<-data.frame(country= a, year = b, prevalence=c)
+left_label<-discu %>% filter(year==2003)
+z<-c('2019', '2011', '2011', '2018', '2019', '2021', '2018')
+z<-data.frame(yr=z)
+right_label<-discu %>% filter(year=='later year')
+right_label<-bind_cols(right_label, z) %>% mutate(year_later= paste0(prevalence, '(', yr, ')'))
+d<-ggplot(data=discu, aes(x= prevalence, y= fct_reorder(country, prevalence)))+ geom_point(aes(color= year), size = 3)
+d+scale_x_continuous(limits = c(-10, 70))+geom_line(aes(group= country), color= 'red')+geom_text(data = left_label, aes(label= prevalence), hjust=2)+geom_text(data = right_label, aes(label= year_later), hjust = -0.3)+ labs(x= 'Prevalence(%)', y= 'Country')+theme_classic()
+```
+
+```{r senst, fig.cap='Comparison of Pooled Prediabetes Estimates with and without HbA1c-based Studies'}
+ee<-slice(data_ADA_cal, -(3:4))
+ef<-rma.mv(data = ee, yi, vi, digits = 3,random= ~1|criteria/First_Author, tdist=TRUE, method = "REML")
+ef_data<-confint.rma.mv(ef, transf = transf.iarcsin, fixed = TRUE, random = FALSE)
+ef_data<-data.frame(ef_data$fixed)
+eg<-data.frame(term=c('With HbA1c-based Studies', 'Without HbA1c-based Studies'), statistic=c(model_1_ADA$zval, ef$zval), p.value=c(model_1_ADA$pval, ef$pval), estimate=c(model_ADA_data[1,1], ef_data[1, 1]), conf.low=c(model_ADA_data[1, 2], ef_data[1, 2]), conf.high=c(model_ADA_data[1, 3], ef_data[1, 3]))
+ggcoefstats(eg, statistic = 'z', ylab = 'Models', xlab = 'Prevalence', sort = 'ascending')
+```
+
+
+Putting the burden of prediabetes in Nigeria in the African perspective, the number individuals living with prediabetes in the country under the ADA criteria (`r round(model_ADA_data[1,1]*120, digits =1)` million) is `r round(((model_ADA_data[1,1]*120/45.3)*100), digits=0)`% of the whole number of adult Africans(45.3 million) with IGT as estimated in 2019[@karurangaIDFAtlas9th2019].This means 1 in every 3 Africans with prediabetes is a Nigerian.        
+    
+Considering the reported overall Type II diabetes prevalence of 5.7% in Nigeria [@adeloyeEstimatingPrevalenceHospitalisation2017; @ulokoPrevalenceRiskFactors2018], the overall prevalence of dysglycemia in the country ranged from `r round(model_WHO_data[1,1]*100+5.7, digits =1)`% under the WHO criteria to `r round(model_ADA_data[1,1]*100+5.7, digits =1)`% under the ADA criteria. This means about one in every 5 adult Nigerians have dysglycemia. These individuals are at high risk of developing cardiovascular complications. This will add to the cardiovascular disease burden in the country further pressurizing the overstretched health care system.        
+    
+Analysis of heterogeneity in this analysis reveals different behaviours for the two measures of heterogeneity; I^2^ and tau^2^. The former is known to be sensitive to the size of studies i.e. if the included studies are fairly large then the sampling error will be close to zero and I^2^ as a ratio will approach 100%[@harrerDoingMetaAnalysisHandsOn2021]. To measure,  with a precision of 0.05 and 95% confidence interval, a prediabetes prevalence of  `r round((transf.iarcsin(model_1_ADA$beta)), digits = 2)*100`% found in this study, the minimum sample size required is One Hundred and Seventy four [@epitoolsEpitoolsSampleSize]. The studies included in this meta-analysis are, by the selection criteria, relatively large with sample sizes having an interquartile range of `r IQR(data$sample_sz)`. Consequently,  I^2^ might be closer to 100% even if the between study heterogeneity is not substantial. This is likely the case as a metaregression  reduced the tau^2^ by almost `r round((model_1_WHO$tau2-WHO_metaregression1$tau2)/model_1_WHO$tau2*100, digits = 0)`% whereas reduction in I^2^ is less pronounced, though equally significant.  The prediction intervals for models under ADA and WHO criteria included zero(0) in their lower bounds. This means that among a population of highly heterogeneous studies on prediabetes conducted or to be conducted in Nigeria, a subset of studies conducted in specific age groups, regions and settlements will find a prevalence rate of zero(0). The respective highest possible prevalence rates are `r round(PI_ADA[1,5]*100, digits=0)`% and `r round(PI_WHO[1,5]*100, digits=0)`% for ADA and WHO criteria.       
+    
+The similar prevalence of prediabetes in females compared to males in Nigeria found in this analysis is similar to what what was found in a pooled estimate of IFG prevalence rates in the country. [@adeloyeEstimatingPrevalenceHospitalisation2017]. This might indicate a tendency for closure of the gap in the prevalence rates of type II diabetes  between the two sexes. The reasons for this tendency might be due to the fact that females in Nigeria have higher rates of generalized obesity (BMI) [@adeloyeEstimatingPrevalenceOverweight2021] and physical inactivity [@adeloyeEpidemiologyPhysicalInactivity2021]. Similar equal prevalence of prediabetes in females and males was found in China[@liPrevalenceDiabetesRecorded2020]. In Brazil, however, females were found to have higher prevalence of prediabetes [@iserPrediabetesIntermediateHyperglycemia2021]. However in England and United States, males have higher prevalence of prediabetes than females [@mainousPrevalencePrediabetesEngland2014; @menkePrevalenceTrendsDiabetes2015].             
+    
+The similar prediabetes prevalence between rural and urban settlements is unexpected. This is because urban residents are less physically active due to access to motorized transport, clerical and mechanized work activity and access to work-saving devices even for home related activities like cooking and laundry. Access to energy dense foods like refined sugar and saturated fats is also higher in urban settlements [@whoconsultationonobesity1999:genevaObesityPreventingManaging2000]. Consequently, diabetes prevalence is higher among urban than rural residents in the country as found in a recent meta-analysis [@adelowoAssessmentPrevalenceDiabetes2019b]. The relatively high prevalence of pre-diabetes among rural residents might be a pointer of future diabetic epidemic in the country.        
+    
+The pooled estimate of this meta-analysis included studies that employed HbA1c in diagnosing prediabetes. Although HbA1c is a sensitive marker for chronic hyperglycemia and useful in monitoring microvascular complications of prediabetes and diabetes [@IntensiveBloodglucoseControl1998], it is a less reliable tool for making a diagnosis of prediabetes and diabetes[@dagogo-jackPitfallsUseHbA1c2010]. Specifically, HbA1c values was known to be higher in individuals of African ancestry compared to caucasians for the same level of plasma glucose levels in individuals with IGT [@hermanDifferencesA1CRace2007] and with diabetes [@hermanRacialEthnicDifferences2009]. The implication for this meta-analysis is that including HbA1c-based studies might lead to inflated pooled estimate of prediabetes prevalence. A sensitivity analysis carried out by running the meta-analysis model with and without HbA1c-based studies showed that, in the context of this meta-analysis, including the HbA1c-based studies did not lead to inflated prevalence of prediabetes. Figure \@ref(fig:senst) shows the comparisons of the two models.      
+
+# SUMMARY AND CONCLUSION
+
+The pooled prevalence of prediabetes in Nigeria was found to be  `r round(model_ADA_data[1,1]*100, digits =1)`% (95% CI: `r round(model_ADA_data[1,2]*100, digits =1)`%-`r round(model_ADA_data[1,3]*100, digits =1)`%, I^2^ = `r aa`% ) using the ADA criteria and `r round(model_WHO_data[1,1]*100, digits =1)`% (95% CI: `r round(model_WHO_data[1,2]*100, digits =1)`%-`r round(model_WHO_data[1,3]*100, digits =1)`%, I^2^ = `r bb`% ) using the WHO criteria. According to the latest data by the United Nations[@unfpa-unitednationspopulationfundUNFPAUnitedNations2021], this translates to estimated `r round(model_ADA_data[1,1]*120, digits =1)` million  and `r round(model_WHO_data[1,1]*120, digits =1)` adult prediabetic individuals in Nigeria using the ADA and WHO criteria respectively. The prevalence rates for females and males are similar at `r round(sex_WHO[1,1]*100, digits = 1)`% (95% CI: `r round(sex_WHO[1,2]*100, digits = 0)`%-`r round(sex_WHO[1,3]*100, digits = 0)`%). The pooled prevalence rates for urban and rural settlements are also similar at `r round(settl_WHO[1,1]*100, digits = 0)`% (95% CI: `r round(settl_WHO[1,2]*100, digits = 0)`%-`r round(settl_WHO[1,3]*100, digits = 0)`%). In conclusion, the prevalence of prediabetes in Nigeria is almost 2 times higher than the 7.3% estimate by the International Diabetes Federation in 2003. The similar rates of prediabetes between males and females and between urban and rural settlements points towards narrowing of cardiovascular risk burden between the two sexes and the two settlements. This represents higher future cardiovascular disease burden in the country further pressurizing the overstretched health care system.
+
+# REFERENCES
